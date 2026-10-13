@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "latest": "150.0.7871.186",
+  "versions": [
+    {
+      "version": "150.0.7871.186",
+      "date": "2026-10-02",
+      "notes": "fingerprint-chromium 150.0.7871.186 (Chromium 150).",
+      "assets": [
+        {
+          "platform": "win32-x64",
+          "file": "ungoogled-chromium_150.0.7871.186-1.1_windows_x64.zip",
+          "url": "https://github.com/mr-abdelali/profilehub-browser/releases/download/150.0.7871.186/ungoogled-chromium_150.0.7871.186-1.1_windows_x64.zip",
+          "mirrors": [
+            "https://github.com/adryfish/fingerprint-chromium/releases/download/150.0.7871.186/ungoogled-chromium_150.0.7871.186-1.1_windows_x64.zip"
+          ],
+          "sha256": "4d549c326e51ebbabf562fd365eb5380d9d4a81200da2c60f075c688d9a77e03",
+          "size": 193743241
+        }
+      ]
+    }
+  ]
+}
