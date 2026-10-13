@@ -1,0 +1,46 @@
+# Publishes every asset listed in manifest.json as a GitHub Release asset of this repository.
+# For each asset without a release file yet: download it from its first mirror (the upstream
+# fingerprint-chromium release), check the SHA-256 from manifest.json, then upload it.
+# A file whose checksum does not match is never published.
+name: Mirror browser builds
+
+on:
+  push:
+    branches: [main]
+    paths: [manifest.json, .github/workflows/mirror.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish missing assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          jq -c '.versions[] | .version as $v | .notes as $n | .assets[] | . + {version: $v, notes: ($n // "")}' manifest.json |
+          while read -r asset; do
+            version=$(jq -r .version <<<"$asset")
+            file=$(jq -r .file <<<"$asset")
+            sha=$(jq -r .sha256 <<<"$asset")
+            source=$(jq -r '.mirrors[0]' <<<"$asset")
+            if gh release view "$version" --json assets -q '.assets[].name' 2>/dev/null | grep -qxF "$file"; then
+              echo "$version/$file is already published"
+              continue
+            fi
+            echo "Downloading $source"
+            curl -fL --retry 5 --retry-delay 10 -o "$file" "$source"
+            echo "$sha  $file" | sha256sum -c -
+            if ! gh release view "$version" >/dev/null 2>&1; then
+              gh release create "$version" --title "ProfileHub Browser $version" \
+                --notes "$(jq -r .notes <<<"$asset") Mirrored from $source. SHA-256: $sha"
+            fi
+            gh release upload "$version" "$file" --clobber
+            rm -f "$file"
+          done

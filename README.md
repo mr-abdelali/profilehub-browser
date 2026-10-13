@@ -29,6 +29,16 @@ The files are the upstream release files, unchanged. Nothing is rebuilt here.
 3. Push. The `Mirror browser builds` workflow downloads the file, checks the SHA-256 and attaches
    it to a release named after the version.
 
+Until a version is mirrored here, the app downloads it from the upstream link in `mirrors` (the
+SHA-256 check is the same).
+
+### Turning on the mirror workflow (one time)
+
+The workflow is stored as `ci/mirror.yml`, because the access token used by ProfileHub's
+assistant may not create workflow files. To turn it on, open `ci/mirror.yml` on GitHub, click the
+pencil (Edit), change the file name to `.github/workflows/mirror.yml`, and commit. GitHub then
+runs it and publishes the release.
+
 ## License
 
 fingerprint-chromium and ungoogled-chromium are BSD-3-Clause licensed (see [LICENSE](LICENSE)).
