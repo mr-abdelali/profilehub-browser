@@ -32,6 +32,27 @@ The files are the upstream release files, unchanged. Nothing is rebuilt here.
 Until a version is mirrored here, the app downloads it from the upstream link in `mirrors` (the
 SHA-256 check is the same).
 
+## New versions (automatic)
+
+`New browser version` (`.github/workflows/new-version.yml`) runs every day:
+
+1. It looks for a new [fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium/releases) release with a Windows ZIP.
+2. On a Windows machine of GitHub it runs ProfileHub's browser check (`ci/browser-check.mjs`,
+   built from the app with `npm run browser:check-bundle`): launch, automation traces, time zone,
+   languages, platform, safe close, session restore, non-English folder names, same and
+   different fingerprints, and pages that read canvas pixels.
+3. Passed: the file is published as a release here and `manifest.json` gets it as `latest`
+   (`ci/add-version.mjs`, the 3 newest versions are kept). The app then offers or installs it.
+4. Failed: nothing is published, and an issue "<version> failed the browser check" is opened with
+   the report (GitHub e-mails you). Close the issue and run the workflow with the version to test
+   it again.
+
+### Turning on the workflow (one time)
+
+Like the mirror workflow: open `ci/new-version.yml` on GitHub, click the pencil (Edit), change
+the file name to `.github/workflows/new-version.yml`, and commit. To try it at once: Actions →
+New browser version → Run workflow.
+
 ### Turning on the mirror workflow (one time)
 
 The workflow is stored as `ci/mirror.yml`, because the access token used by ProfileHub's

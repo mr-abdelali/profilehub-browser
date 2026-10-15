@@ -1,0 +1,173 @@
+# Every day: looks for a new fingerprint-chromium release. A new Windows build is downloaded,
+# tested on Windows with ProfileHub's browser check (ci/browser-check.mjs: launch, automation
+# traces, time zone, languages, platform, safe close, session restore, non-English folder
+# names, same / different fingerprint, canvas pages that crashed before), then published as a
+# release here and added to manifest.json, so the app offers it. A build that fails is not
+# published: an issue "<version> failed the browser check" is opened (GitHub e-mails you), and
+# that version is not tested again until the issue is closed.
+name: New browser version
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Upstream tag to test again (empty: the newest release)'
+        required: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: new-browser-version
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.find.outputs.found }}
+      version: ${{ steps.find.outputs.version }}
+      file: ${{ steps.find.outputs.file }}
+      url: ${{ steps.find.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANTED: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "${WANTED:-}" ]; then
+            release=$(gh api "repos/adryfish/fingerprint-chromium/releases/tags/$WANTED")
+          else
+            release=$(gh api repos/adryfish/fingerprint-chromium/releases/latest)
+          fi
+          version=$(jq -r .tag_name <<<"$release")
+          asset=$(jq -c '[.assets[] | select(.name | test("_windows_x64\\.zip$"))][0]' <<<"$release")
+          echo "Upstream: $version"
+          if [ "$asset" = "null" ]; then
+            echo "No Windows zip in $version yet."; echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -z "${WANTED:-}" ]; then
+            if jq -e --arg v "$version" 'any(.versions[]; .version == $v)' manifest.json >/dev/null; then
+              echo "$version is already in manifest.json."; echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            if gh issue list --state open --search "\"$version failed the browser check\" in:title" --json number -q '.[].number' | grep -q .; then
+              echo "$version failed before (open issue). Close it and run this workflow with the version to test again."
+              echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+          fi
+          {
+            echo "found=true"
+            echo "version=$version"
+            echo "file=$(jq -r .name <<<"$asset")"
+            echo "url=$(jq -r .browser_download_url <<<"$asset")"
+          } >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: detect
+    if: needs.detect.outputs.found == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      sha256: ${{ steps.download.outputs.sha256 }}
+      size: ${{ steps.download.outputs.size }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: download
+        shell: bash
+        env:
+          URL: ${{ needs.detect.outputs.url }}
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 10 -o build.zip "$URL"
+          echo "sha256=$(sha256sum build.zip | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "size=$(stat -c %s build.zip)" >> "$GITHUB_OUTPUT"
+      - name: Unpack
+        shell: pwsh
+        run: Expand-Archive -Path build.zip -DestinationPath browser
+      - name: Browser check
+        shell: bash
+        env:
+          VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          exe=$(find browser -name chrome.exe | head -n 1)
+          node ci/browser-check.mjs --exe "$exe" --version "$VERSION" --report report.json 2>&1 | tee report.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-check
+          path: |
+            report.txt
+            report.json
+          if-no-files-found: ignore
+
+  publish:
+    needs: [detect, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release and manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.detect.outputs.version }}
+          FILE: ${{ needs.detect.outputs.file }}
+          URL: ${{ needs.detect.outputs.url }}
+          SHA256: ${{ needs.test.outputs.sha256 }}
+          SIZE: ${{ needs.test.outputs.size }}
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 10 -o "$FILE" "$URL"
+          # The same file that was tested.
+          echo "$SHA256  $FILE" | sha256sum -c -
+          if ! gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release create "$VERSION" --title "ProfileHub Browser $VERSION" \
+              --notes "fingerprint-chromium $VERSION, passed the automatic browser check. Mirrored from $URL. SHA-256: $SHA256"
+          fi
+          gh release upload "$VERSION" "$FILE" --clobber
+          node ci/add-version.mjs --version "$VERSION" --file "$FILE" --sha256 "$SHA256" --size "$SIZE" --upstream "$URL"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Add ProfileHub Browser $VERSION (passed the browser check)"
+          git push
+
+  report:
+    needs: [detect, test]
+    if: failure() && needs.detect.outputs.found == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: browser-check
+        continue-on-error: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.detect.outputs.version }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="$VERSION failed the browser check"
+          if gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number -q '.[].number' | grep -q .; then
+            exit 0
+          fi
+          {
+            echo "fingerprint-chromium $VERSION was not published: the automatic browser check failed."
+            echo "ProfileHub keeps offering the previous version."
+            echo
+            echo '```'
+            cat report.txt 2>/dev/null || echo "No report (the download or unpacking failed)."
+            echo '```'
+            echo
+            echo "Run: $RUN"
+            echo
+            echo "To test it again: close this issue, then Actions → New browser version → Run workflow with version $VERSION."
+          } > body.md
+          gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body-file body.md
