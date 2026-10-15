@@ -4,8 +4,8 @@
   "versions": [
     {
       "version": "150.0.7871.186",
-      "date": "2026-10-02",
-      "notes": "fingerprint-chromium 150.0.7871.186 (Chromium 150).",
+      "date": "2026-10-15",
+      "notes": "fingerprint-chromium 150.0.7871.186 (Chromium 150). Passed the automatic browser check.",
       "assets": [
         {
           "platform": "win32-x64",
