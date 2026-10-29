@@ -1,6 +1,6 @@
 # Publishes every asset listed in manifest.json as a GitHub Release asset of this repository.
 # For each asset without a release file yet: download it from its first mirror (the upstream
-# fingerprint-chromium release), check the SHA-256 from manifest.json, then upload it.
+# Clearcote or fingerprint-chromium release), check the SHA-256 from manifest.json, then upload it.
 # A file whose checksum does not match is never published.
 name: Mirror browser builds
 

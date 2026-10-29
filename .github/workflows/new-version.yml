@@ -1,4 +1,4 @@
-# Every day: looks for a new fingerprint-chromium release. A new Windows build is downloaded,
+# Every day: looks for a new Clearcote release (clearcotelabs/clearcote-browser). A new Windows build is downloaded,
 # tested on Windows with ProfileHub's browser check (ci/browser-check.mjs: launch, automation
 # traces, time zone, languages, platform, safe close, session restore, non-English folder
 # names, same / different fingerprint, canvas pages that crashed before), then published as a
@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Upstream tag to test again (empty: the newest release)'
+        description: 'Clearcote release tag to test again, e.g. v0.1.0-pre.25 (empty: the newest release)'
         required: false
 
 permissions:
@@ -40,17 +40,23 @@ jobs:
           WANTED: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          # Clearcote publishes pre-releases (tags v0.1.0-pre.N); the Chromium version is in the
+          # asset name: clearcote-<version>-windows-x64.zip.
           if [ -n "${WANTED:-}" ]; then
-            release=$(gh api "repos/adryfish/fingerprint-chromium/releases/tags/$WANTED")
+            release=$(gh api "repos/clearcotelabs/clearcote-browser/releases/tags/$WANTED")
           else
-            release=$(gh api repos/adryfish/fingerprint-chromium/releases/latest)
+            release=$(gh api "repos/clearcotelabs/clearcote-browser/releases?per_page=20" \
+              | jq -c '[.[] | select(.draft | not) | select(any(.assets[]; .name | test("^clearcote-.+-windows-x64\\.zip$")))][0]')
           fi
-          version=$(jq -r .tag_name <<<"$release")
-          asset=$(jq -c '[.assets[] | select(.name | test("_windows_x64\\.zip$"))][0]' <<<"$release")
-          echo "Upstream: $version"
+          if [ "$release" = "null" ]; then
+            echo "No release with a Windows zip."; echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          asset=$(jq -c '[.assets[] | select(.name | test("^clearcote-.+-windows-x64\\.zip$"))][0]' <<<"$release")
           if [ "$asset" = "null" ]; then
-            echo "No Windows zip in $version yet."; echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+            echo "No Windows zip in $(jq -r .tag_name <<<"$release") yet."; echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
+          version=$(jq -r .name <<<"$asset" | sed -E 's/^clearcote-(.+)-windows-x64\.zip$/\1/')
+          echo "Upstream: $version ($(jq -r .tag_name <<<"$release"))"
           if [ -z "${WANTED:-}" ]; then
             if jq -e --arg v "$version" 'any(.versions[]; .version == $v)' manifest.json >/dev/null; then
               echo "$version is already in manifest.json."; echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
@@ -129,7 +135,7 @@ jobs:
           echo "$SHA256  $FILE" | sha256sum -c -
           if ! gh release view "$VERSION" >/dev/null 2>&1; then
             gh release create "$VERSION" --title "ProfileHub Browser $VERSION" \
-              --notes "fingerprint-chromium $VERSION, passed the automatic browser check. Mirrored from $URL. SHA-256: $SHA256"
+              --notes "Clearcote $VERSION, passed the automatic browser check. Mirrored from $URL. SHA-256: $SHA256"
           fi
           gh release upload "$VERSION" "$FILE" --clobber
           node ci/add-version.mjs --version "$VERSION" --file "$FILE" --sha256 "$SHA256" --size "$SIZE" --upstream "$URL"
@@ -159,7 +165,7 @@ jobs:
             exit 0
           fi
           {
-            echo "fingerprint-chromium $VERSION was not published: the automatic browser check failed."
+            echo "Clearcote $VERSION was not published: the automatic browser check failed."
             echo "ProfileHub keeps offering the previous version."
             echo
             echo '```'
