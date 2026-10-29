@@ -41,7 +41,7 @@ const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'))
 const entry = {
   version,
   date: new Date().toISOString().slice(0, 10),
-  notes: `fingerprint-chromium ${version} (Chromium ${version.split('.')[0]}). Passed the automatic browser check.`,
+  notes: `Clearcote ${version} (Chromium ${version.split('.')[0]}). Passed the automatic browser check.`,
   assets: [
     {
       platform: 'win32-x64',

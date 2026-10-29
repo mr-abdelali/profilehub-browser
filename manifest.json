@@ -1,7 +1,24 @@
 {
   "schema": 1,
-  "latest": "150.0.7871.186",
+  "latest": "151.0.7922.108",
   "versions": [
+    {
+      "version": "151.0.7922.108",
+      "date": "2026-10-29",
+      "notes": "Clearcote 151.0.7922.108 (Chromium 151). Fingerprint built into the browser engine (iphey: trustworthy). Passed the automatic browser check.",
+      "assets": [
+        {
+          "platform": "win32-x64",
+          "file": "clearcote-151.0.7922.108-windows-x64.zip",
+          "url": "https://github.com/mr-abdelali/profilehub-browser/releases/download/151.0.7922.108/clearcote-151.0.7922.108-windows-x64.zip",
+          "mirrors": [
+            "https://github.com/clearcotelabs/clearcote-browser/releases/download/v0.1.0-pre.25/clearcote-151.0.7922.108-windows-x64.zip"
+          ],
+          "sha256": "a3e3455c4c2da6187c9224563d99651a0cfd1a2bac5f70c2f9a19366c4c541cd",
+          "size": 204317302
+        }
+      ]
+    },
     {
       "version": "150.0.7871.186",
       "date": "2026-10-15",

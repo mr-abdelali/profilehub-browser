@@ -1,7 +1,8 @@
 # ProfileHub Browser
 
-Windows builds of [fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium)
-(ungoogled-chromium with fingerprint flags such as `--fingerprint=<seed>`), mirrored for the
+Windows builds of [Clearcote](https://github.com/clearcotelabs/clearcote-browser) (version 151 and
+newer) and [fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium) (150 and older):
+Chromium with fingerprint flags such as `--fingerprint=<seed>`, mirrored for the
 ProfileHub desktop app. The app reads `manifest.json` from this repository, downloads the build
 of the latest version, checks its SHA-256, and installs it to
 `%APPDATA%\ProfileHub\browsers\<version>`.
@@ -36,7 +37,7 @@ SHA-256 check is the same).
 
 `New browser version` (`.github/workflows/new-version.yml`) runs every day:
 
-1. It looks for a new [fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium/releases) release with a Windows ZIP.
+1. It looks for a new [Clearcote](https://github.com/clearcotelabs/clearcote-browser/releases) release with a Windows ZIP.
 2. On a Windows machine of GitHub it runs ProfileHub's browser check (`ci/browser-check.mjs`,
    built from the app with `npm run browser:check-bundle`): launch, automation traces, time zone,
    languages, platform, safe close, session restore, non-English folder names, same and
@@ -62,6 +63,6 @@ runs it and publishes the release.
 
 ## License
 
-fingerprint-chromium and ungoogled-chromium are BSD-3-Clause licensed (see [LICENSE](LICENSE)).
+Clearcote, fingerprint-chromium and ungoogled-chromium are under their own licenses (fingerprint-chromium and ungoogled-chromium: BSD-3-Clause, (see [LICENSE](LICENSE)).
 Chromium itself is BSD-3-Clause licensed by The Chromium Authors and includes third-party code
 under other licenses; see `chrome://credits` in the browser.
